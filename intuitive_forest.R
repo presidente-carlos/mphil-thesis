@@ -54,11 +54,12 @@ intuitive_forest = function(df, n, random, n_trees = 200){
       
       # Store variable values in vectors for RF analysis
       # Note, rows must be stored always in the same order
-      x_inv = investigations |> select(-lying)
-      y_inv = investigations$lying
-      share_success[t] = sum(y_inv)/sum(data$lying)
-      L_store = c(L_store, y_inv) |> as.factor() #For randomForest() convenience
-      K_store = rbind(K_store, x_inv)
+      x_model = investigations |> select(-lying)
+      y_model = investigations$lying
+      y_analysis = y_model
+      share_success[t] = sum(y_analysis)/sum(data$lying)
+      L_store = c(L_store, y_model) |> as.factor() #For randomForest() convenience
+      K_store = rbind(K_store, x_model)
       
     }else{
       
@@ -96,18 +97,24 @@ intuitive_forest = function(df, n, random, n_trees = 200){
       colnames(pk) = c("pk", "index")
       
       # Select top-predictions [80%]
+      # Models should only be trained on random data!
+      # Random will eventually be a time-varying variable
       inv_forest = slice_max(pk, order_by = pk, n = (1-random)*n_t)
-      aux_seq = 1:N_t
-      investigations = sample(aux_seq[-inv_forest$index], size = random*n_t,
-                              replace = FALSE) |> c(inv_forest$index)
+      inv_random = sample(1:N_t, size = random*n_t,
+                          replace = FALSE)
+      investigations = c(inv_forest$index, inv_random) |> unique()
       
       # Store variable values in vectors for RF analysis
-      y_inv = data[investigations,]$lying
-      share_success[t] = sum(y_inv)/sum(data$lying)
-      x_inv = data[investigations,] |> select(-lying)
+      # There is a key question here you can analyze empirically and theoretically,
+      # would you rather have a fraction of observations (y_model) or non-representative
+      # sample (high A_tk individuals)
+      y_analysis = data[investigations,]$lying
+      share_success[t] = sum(y_analysis)/sum(data$lying)
+      y_model = data[inv_random,] |> select(lying)
+      x_model = data[inv_random,] |> select(-lying)
       L_store = L_store |> as.character() |> as.numeric()
-      L_store = c(L_store, y_inv) |> as.factor()
-      K_store = rbind(K_store, x_inv)  
+      L_store = c(L_store, y_model) |> as.factor()
+      K_store = rbind(K_store, x_model)  
       
     }
     
